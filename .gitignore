@@ -5,6 +5,7 @@ node_modules
 /.tf_configure.bazelrc
 /xla_configure.bazelrc
 /bazel-*
+/bazel_*
 /bazel_pip
 /tools/python_bin_path.sh
 /tensorflow/tools/git/gen
