@@ -127,6 +127,8 @@ std::string GetCommonOpenCLDefines(CalculationsPrecision precision) {
 
 absl::Status ClOperation::UpdateParams() {
   for (int i = 0; i < operation_->GetSrcTensorsNames().size(); ++i) {
+    // Minsung debug
+    std::cout << "Update srctensor param " << operation_->GetSrcTensorsNames()[i] << " ";
     const auto* cl_spatial_tensor =
         dynamic_cast<const Tensor*>(operation_->GetSrcTensors()[i]);
     if (!cl_spatial_tensor) {
@@ -135,7 +137,9 @@ absl::Status ClOperation::UpdateParams() {
     RETURN_IF_ERROR(cl_args_.SetObjectRef(operation_->GetSrcTensorsNames()[i],
                                           cl_spatial_tensor));
   }
+  std::cout << "\n";
   for (int i = 0; i < operation_->GetDstTensorsNames().size(); ++i) {
+    std::cout << "Update dsttensr param " << operation_->GetDstTensorsNames()[i] << " ";
     const auto* cl_spatial_tensor =
         dynamic_cast<const Tensor*>(operation_->GetDstTensors()[i]);
     if (!cl_spatial_tensor) {
@@ -144,6 +148,7 @@ absl::Status ClOperation::UpdateParams() {
     RETURN_IF_ERROR(cl_args_.SetObjectRef(operation_->GetDstTensorsNames()[i],
                                           cl_spatial_tensor));
   }
+  std::cout << "\n";
   RETURN_IF_ERROR(operation_->BindArguments(&cl_args_));
   operation_->RecalculateGridSize();
   operation_->RecalculateWorkGroupsCount();

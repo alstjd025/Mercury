@@ -105,6 +105,82 @@ GraphPartitionHelper::GetFirstNLargestPartitions(
   // one-time work, we simply unconditionally sort partitions here according to
   // the size.
   std::vector<TfLiteDelegateParams*> sorted_partitions(partitions_);
+  
+  // Minsung modified
+  // To see if subsets in partitions_ are in schedulable order.
+  #ifdef MINSUNG_DEBUG
+  for(int i=0; i<partitions_.size(); ++i){
+    std::cout << "Partition " << i << " nodes ";
+    for(int j=0; j<partitions_[i]->nodes_to_replace->size; ++j){
+      std::cout << partitions_[i]->nodes_to_replace->data[j] << " ";
+    }
+    std::cout << "\n";
+  }
+  #endif
+for(int i=0; i<partitions_.size(); ++i){
+    std::cout << "Partition " << i << " nodes ";
+    for(int j=0; j<partitions_[i]->nodes_to_replace->size; ++j){
+      std::cout << partitions_[i]->nodes_to_replace->data[j] << " ";
+    }
+    std::cout << "\n";
+  }
+  // Minsung modified -- for yolov10m CPU-GPU test
+  // // Minsung debug
+  #ifdef yolov10
+  std::vector<TfLiteDelegateParams*> modified_results;
+  std::vector<std::pair<int, int>> params_to_merge;
+  params_to_merge.push_back(std::pair<int, int>(0, 32));
+  params_to_merge.push_back(std::pair<int, int>(34, 36));
+  params_to_merge.push_back(std::pair<int, int>(40, 41));
+  params_to_merge.push_back(std::pair<int, int>(42, 44));
+  params_to_merge.push_back(std::pair<int, int>(44, 45));
+  params_to_merge.push_back(std::pair<int, int>(52, 54));
+  for(auto to_merge : params_to_merge){
+    for(int merge_idx_start = to_merge.first;
+        merge_idx_start < to_merge.second; ++merge_idx_start){
+      modified_results.push_back(partitions_[merge_idx_start]);
+    }
+  }
+  std::cout << "Modified partition results in GetFirstNLargestPartitions" << "\n";
+  for(int i=0; i<modified_results.size(); ++i){
+    std::cout << "Modified partitions " << i << " nodes ";
+    for(int j=0; j<modified_results[i]->nodes_to_replace->size; ++j){
+      std::cout << modified_results[i]->nodes_to_replace->data[j] << " ";
+    }
+    std::cout << "\n";
+  }
+  return modified_results;
+  #endif
+
+  // Minsung modified -- for convnet
+  // #ifdef Convnet
+  // std::vector<TfLiteDelegateParams*> modified_results;
+  // std::vector<std::pair<int, int>> params_to_merge;
+  // params_to_merge.push_back(std::pair<int, int>(0, 32));
+  // params_to_merge.push_back(std::pair<int, int>(34, 36));
+  // params_to_merge.push_back(std::pair<int, int>(40, 41));
+  // params_to_merge.push_back(std::pair<int, int>(42, 44));
+  // params_to_merge.push_back(std::pair<int, int>(44, 45));
+  // params_to_merge.push_back(std::pair<int, int>(52, 54));
+  // for(auto to_merge : params_to_merge){
+  //   for(int merge_idx_start = to_merge.first;
+  //       merge_idx_start < to_merge.second; ++merge_idx_start){
+  //     modified_results.push_back(partitions_[merge_idx_start]);
+  //   }
+  // }
+  // std::cout << "Modified partition results in GetFirstNLargestPartitions" << "\n";
+  // for(int i=0; i<modified_results.size(); ++i){
+  //   std::cout << "Modified partitions " << i << " nodes ";
+  //   for(int j=0; j<modified_results[i]->nodes_to_replace->size; ++j){
+  //     std::cout << modified_results[i]->nodes_to_replace->data[j] << " ";
+  //   }
+  //   std::cout << "\n";
+  // }
+  // return modified_results;
+  // #endif
+  // Minsung modified -- for convnet
+  
+
   std::sort(sorted_partitions.begin(), sorted_partitions.end(),
             [](TfLiteDelegateParams* left, TfLiteDelegateParams* right) {
               // Reverse sort

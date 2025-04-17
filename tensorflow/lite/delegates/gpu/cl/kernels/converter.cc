@@ -23,6 +23,9 @@ limitations under the License.
 #include <variant>
 #include <vector>
 
+// Minsung modified
+#include <iostream>
+
 #include "absl/strings/substitute.h"
 #include "tensorflow/lite/delegates/gpu/cl/buffer.h"
 #include "tensorflow/lite/delegates/gpu/cl/cl_arguments.h"
@@ -166,6 +169,9 @@ class TensorToTensorConverter : public OpenClConverterImpl {
 
   absl::Status Convert(const TensorObject& input_obj,
                        const TensorObject& output_obj) override {
+    // #ifdef MINSUNG_DEBUG
+    // std::cout << "TensorToTensorConverter Converter called" << "\n";
+    // #endif
     cl_mem in_memory;
     RETURN_IF_ERROR(GetOpenCLMemory(input_obj, &in_memory));
     cl_mem out_memory;
@@ -253,6 +259,9 @@ class TensorToBHWCBufferConverter : public OpenClConverterImpl {
   absl::Status Convert(const TensorObject& input_obj,
                        const TensorObject& output_obj) override {
     auto output = std::get_if<OpenClBuffer>(&output_obj);
+    // #ifdef MINSUNG_DEBUG
+    // std::cout << "TensorToBHWCBufferConverter Converter called" << "\n";
+    // #endif
     if (!output || !output->memobj) {
       return absl::InvalidArgumentError(
           "Missing output in tensor_to_bhwc converter");
@@ -327,6 +336,10 @@ class BHWCBufferToTensorConverter : public OpenClConverterImpl {
   absl::Status Convert(const TensorObject& input_obj,
                        const TensorObject& output_obj) override {
     auto input = std::get_if<OpenClBuffer>(&input_obj);
+    //Minsung modified
+    // #ifdef MINSUNG_DEBUG
+    // std::cout << "BHWCBufferToTensorConverter Converter called" << "\n";
+    // #endif
     if (!input || !input->memobj) {
       return absl::InvalidArgumentError(
           "Missing input in bhwc_to_tensor converter");
@@ -395,6 +408,9 @@ class TrivialCopier : public OpenClConverterImpl {
 
   absl::Status Convert(const TensorObject& input_obj,
                        const TensorObject& output_obj) override {
+    // #ifdef MINSUNG_DEBUG
+    // std::cout << "TrivialCopier Converter called" << "\n";
+    // #endif
     auto texture_input = std::get_if<OpenClTexture>(&input_obj);
     auto texture_output = std::get_if<OpenClTexture>(&output_obj);
     if (texture_input && texture_output) {
@@ -461,6 +477,9 @@ class CpuCopier : public OpenClConverterImpl {
 
   absl::Status Convert(const TensorObject& input_obj,
                        const TensorObject& output_obj) override {
+    // #ifdef MINSUNG_DEBUG
+    // std::cout << "CpuCopier Converter called" << "\n";
+    // #endif
     auto cpu_input = std::get_if<CpuMemory>(&input_obj);
     auto cpu_output = std::get_if<CpuMemory>(&output_obj);
     if (cpu_input) {

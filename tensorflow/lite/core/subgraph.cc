@@ -30,6 +30,7 @@ limitations under the License.
 #include <utility>
 #include <vector>
 
+
 #include "tensorflow/compiler/mlir/lite/allocation.h"
 #include "tensorflow/lite/array.h"
 #include "tensorflow/lite/builtin_ops.h"
@@ -51,6 +52,14 @@ limitations under the License.
 #include "tensorflow/lite/profiling/telemetry/telemetry.h"
 #include "tensorflow/lite/schema/schema_generated.h"
 #include "tensorflow/lite/util.h"
+
+// Minsung modified
+#include <string>
+#ifdef MINSUNG_SUBGRAPH_LATENCY
+  #define latency_measure
+#endif
+
+
 #ifdef TFLITE_USE_SIMPLE_MEMORY_PLANNER
 #include "tensorflow/lite/simple_planner.h"
 #else
@@ -553,6 +562,15 @@ TfLiteStatus Subgraph::ReplaceNodeSubsetsWithDelegateKernels(
   if (!nodes_to_replace->size) {
     return kTfLiteOk;
   }
+  #ifdef MINSUNG_DEBUG
+  std::cout << "ReplaceNodeSubsetsWithDelegateKernels" << "\n";
+  int size = nodes_to_replace->size;
+  std::cout << "nodes_to_replace : ";
+  for(int idx=0; idx<size; ++idx){
+      std::cout << nodes_to_replace->data[idx] << " ";
+  }
+  std::cout << "\n";
+  #endif
 
   // Analyze the graph to find all independent node_subsets that are either
   // fully not-this-delegate or this-delegate computation.
@@ -560,7 +578,33 @@ TfLiteStatus Subgraph::ReplaceNodeSubsetsWithDelegateKernels(
   if (PartitionGraph(nodes_to_replace, &node_subsets) == kTfLiteError) {
     return kTfLiteError;
   }
+  // WARNING!!! THIS IS DANGEROUS APPROACH!!!
+  // Minsung modified
+  // /*
+  //   For naive approach 1 (yolov10m)
+  //   - delegate subset 0
+  // // #ifdef MINSUNG_EXP
+  // // node_subsets[0].type = NodeSubset::kTfPartition;
+  // // node_subsets[1].type = NodeSubset::kTfNonPartition;
+  // // node_subsets[2].type = NodeSubset::kTfNonPartition;
+  // // #endif
+  //   For naive approach 2 (yolov10m)
+  //   - delegate custom susets
+  // 0~91
+  // 104~133
+  // */
 
+  #ifdef MINSUNG_DEBUG
+  int subset_idx=0;
+  for(auto node_subset_tmp : node_subsets){
+    std::cout << "subset_idx: " << subset_idx << " type " << node_subset_tmp.type <<",ops in subset: ";
+    for(auto op : node_subset_tmp.nodes){
+      std::cout << op << " ";
+    }
+    std::cout << "\n";
+    subset_idx++;
+  }
+  #endif
   // On Android the log message below is used for diagnosing delegation success
   // also in production builds. Use VERBOSE here so that the logging is turned
   // off in production builds on other platforms.
@@ -573,13 +617,22 @@ TfLiteStatus Subgraph::ReplaceNodeSubsetsWithDelegateKernels(
                   subgraph_index_);
 
   execution_plan_.clear();
-
+  // Minsung debug
+  #ifdef MINSUNG_DEBUG
+  subset_idx = 0;
+  #endif
   for (auto& node_subset : node_subsets) {
     // Subsets claimed by the delegate should have a "macro" op created, the
     // other node_subsets (kTfNonPartition) just have their nodes added back to
     // the execution plan.
+    #ifdef MINSUNG_DEBUG
+    // Minsung debug
+    std::cout << "subset_idx : " << subset_idx;
+    #endif
     switch (node_subset.type) {
       case NodeSubset::kTfNonPartition:
+        // Minsung debug
+        std::cout << " kTfNonPartition" << "\n";
         for (auto it = node_subset.nodes.begin(); it != node_subset.nodes.end();
              ++it) {
           execution_plan_.push_back(*it);
@@ -587,7 +640,8 @@ TfLiteStatus Subgraph::ReplaceNodeSubsetsWithDelegateKernels(
         break;
       case NodeSubset::kTfPartition: {
         int node_index;
-
+        // Minsung debug
+        std::cout << " kTfPartition" << "\n";
         void* delegate_params = nullptr;
         if (TfLiteDelegateHasValidOpaqueDelegateBuilder(delegate)) {
           TfLiteOpaqueDelegateParams* opaque_params =
@@ -618,6 +672,10 @@ TfLiteStatus Subgraph::ReplaceNodeSubsetsWithDelegateKernels(
         return kTfLiteError;
         break;
     }
+    // Minsung debug
+    #ifdef MINSUNG_DEBUG
+      subset_idx++;
+    #endif
   }
   return kTfLiteOk;
 }
@@ -801,7 +859,19 @@ TfLiteStatus Subgraph::PreviewDelegatePartitioning(
   if (PartitionGraph(nodes_to_replace, &node_subsets) == kTfLiteError) {
     return kTfLiteError;
   }
-
+  #ifdef MINSUNG_DEBUG
+  int subset_idx=0;
+  std::cout << "PreviewDelegatePartitioning" << "\n";
+  for(auto node_subset_tmp : node_subsets){
+    std::cout << "subset_idx: " << subset_idx << " type "<< node_subset_tmp.type
+              << " ,ops in subset: ";
+    for(auto op : node_subset_tmp.nodes){
+      std::cout << op << " ";
+    }
+    std::cout << "\n";
+    subset_idx++;
+  }
+  #endif
   // Create one TfLiteDelegateParams per node-subset which would be delegated.
   for (auto& node_subset : node_subsets) {
     if (node_subset.type != NodeSubset::kTfPartition) {
@@ -1060,6 +1130,7 @@ TfLiteStatus Subgraph::AllocateTensors(InliningStrategy auto_inline) {
       }
     }
   }
+  std::cout << "allocation done" << "\n";
   return kTfLiteOk;
 }
 
@@ -1092,6 +1163,8 @@ TfLiteStatus Subgraph::AddNodeWithParameters(
     const TfLiteRegistration* registration, int* node_index) {
   std::unique_ptr<void, decltype(free)*> builtin_data_deleter(builtin_data,
                                                               free);
+  // Minsung debug
+  std::cout << "Subgraph::AddNodeWithParameters" << "\n";
   if (state_ == kStateInvokableAndImmutable) {
     ReportError("AddNodeWithParameters is disallowed when graph is immutable.");
     return kTfLiteError;
@@ -1294,6 +1367,8 @@ TfLiteStatus Subgraph::ReleaseMemory() {
 // that.
 void* Subgraph::OpInit(const TfLiteRegistration& op_reg, const char* buffer,
                        size_t length) {
+  //Minsung debug
+  std::cout << "Subgraph::OpInit" << "\n";
   // Delegates that use the stable delegate API to iterate over the nodes and
   // registrations are presented with ABI stable 'TfLiteOperator'
   // pointers, as opposed to ABI unstable 'TfLiteRegistration' pointers, even
@@ -1515,6 +1590,8 @@ TfLiteStatus Subgraph::PrepareOpsStartingAt(
     tflite::OnTfLiteOpPrepare(GetTFLiteOpName(registration), subgraph_index_,
                               node_index);
 #endif  // TF_LITE_TENSORFLOW_PROFILER
+    // Minsung debug
+    std::cout << "execution_plan_index " << execution_plan_index << " OpPrepare()" << "\n";
     const TfLiteStatus op_prepare_status = OpPrepare(registration, &node);
     if (op_prepare_status != kTfLiteOk &&
         op_prepare_status != kTfLiteOutputShapeNotKnown) {
@@ -1656,8 +1733,22 @@ TfLiteStatus Subgraph::InvokeImpl() {
   // Note that calling Invoke repeatedly will cause the original memory plan to
   // be reused, unless either ResizeInputTensor() or AllocateTensors() has been
   // called.
+  
+  // Minsung modified
+  #ifdef latency_measure
+    double invoke_response_time = 0.0;
+    // double op_invoke_response_time = 0.0;
+    struct timespec invoke_begin, invoke_end;
+    // struct timespec op_invoke_begin, op_invoke_end;
+    // std::cout << "Invoke " << "\n";
+    clock_gettime(CLOCK_MONOTONIC, &invoke_begin);
+  #endif
+  
   for (int execution_plan_index = 0;
        execution_plan_index < execution_plan_.size(); execution_plan_index++) {
+    // #ifdef latency_measure
+    //   clock_gettime(CLOCK_MONOTONIC, &op_invoke_begin);
+    // #endif
     if (execution_plan_index == next_execution_plan_index_to_prepare_) {
       TF_LITE_ENSURE_STATUS(PrepareOpsAndTensors());
       TF_LITE_ENSURE(&context_, next_execution_plan_index_to_prepare_ >=
@@ -1736,6 +1827,10 @@ TfLiteStatus Subgraph::InvokeImpl() {
 
     EnsureTensorsVectorCapacity();
     tensor_resized_since_op_invoke_ = false;
+    // Minsung modeified
+    // #ifdef latency_measure
+    //   std::cout << "OP [" << execution_plan_index << "] " << std::string(GetTFLiteOpName(registration)) << " invoke ";
+    // #endif
     if (auto s = OpInvoke(registration, &node); s != kTfLiteOk) {
       auto err = ReportOpError(&context_, node, registration, node_index,
                                "failed to invoke");
@@ -1767,10 +1862,24 @@ TfLiteStatus Subgraph::InvokeImpl() {
 #ifdef TF_LITE_TENSORFLOW_PROFILER
     tflite::OnTfLiteOpInvokeEnd(trace_op);
 #endif  // TF_LITE_TENSORFLOW_PROFILER
-  }
+  // Minsung modeified
+  // #ifdef latency_measure
+  //   clock_gettime(CLOCK_MONOTONIC, &op_invoke_end);
+  //   op_invoke_response_time = (op_invoke_end.tv_sec - op_invoke_begin.tv_sec) +
+  //                   ((op_invoke_end.tv_nsec - op_invoke_begin.tv_nsec) / 1000000000.0);
+  //   printf("%.6f \n", op_invoke_response_time);
+  // #endif
+  } // op invoke loop
 #ifdef TF_LITE_TENSORFLOW_PROFILER
   tflite::OnTfLiteSubgraphInvokeEnd(trace_subgraph);
 #endif  // TF_LITE_TENSORFLOW_PROFILER
+
+#ifdef latency_measure
+  clock_gettime(CLOCK_MONOTONIC, &invoke_end);
+  invoke_response_time = (invoke_end.tv_sec - invoke_begin.tv_sec) +
+                  ((invoke_end.tv_nsec - invoke_begin.tv_nsec) / 1000000000.0);
+  printf("Invoke %.6f \n", invoke_response_time);
+#endif
   return status;
 }
 
@@ -2505,6 +2614,8 @@ TfLiteStatus Subgraph::ModifyGraphWithDelegateImpl(TfLiteDelegate* delegate) {
 
   // Setup additional context interface.
   SwitchToDelegateContext();
+  // Minsung debug
+  std::cout << "Subgraph::ModifyGraphWithDelegateImpl::TfLiteDelegatePrepareInternal()" << "\n";
   TfLiteStatus status = TfLiteDelegatePrepareInternal(&context_, delegate);
   // Remove additional context info.
   SwitchToKernelContext();
@@ -2527,6 +2638,7 @@ TfLiteStatus Subgraph::ModifyGraphWithDelegateImpl(TfLiteDelegate* delegate) {
     // does not.
     // Make sure new delegate didn't mark a tensor as dynamic.
     int last_execution_plan_index_prepared;
+    std::cout << "Subgraph::ModifyGraphWithDelegateImpl::PrepareOpsStartingAt()" << "\n";
     TF_LITE_ENSURE_STATUS(reset_delegation_if_not_ok(PrepareOpsStartingAt(
         0, execution_plan_, &last_execution_plan_index_prepared)));
     if (has_dynamic_tensors_) {

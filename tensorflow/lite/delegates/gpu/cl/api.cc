@@ -27,6 +27,17 @@ limitations under the License.
 #include <variant>
 #include <vector>
 
+// Misnung modified
+// for debudding purpose.
+#include <iostream>
+
+
+// Minsung modified
+#ifdef CL_DEBUG_LATENCY
+  #include "time.h"
+  #define latency_measure
+#endif
+
 #include "absl/memory/memory.h"
 #include "absl/types/span.h"
 #include "tensorflow/lite/delegates/gpu/cl/cl_command_queue.h"
@@ -476,6 +487,12 @@ class InferenceRunnerImpl : public CLInferenceRunner {
                           const std::vector<TensorTieDef>& outputs,
                           TensorTieFactory* factory) {
     RETURN_IF_ERROR(LinkTensors(inputs, factory, &inputs_));
+    // Minsung debug
+    std::cout << "OpenCL inference runner initialize" << "\n";
+    std::cout << "Sizeof memory allocated for intermediate: "
+              << context_->GetSizeOfMemoryAllocatedForIntermediateTensors() << "\n";
+    std::cout << "Sizeof constant tensors size: " 
+              << context_->GetConstantTensorsSize() << "\n";
     return LinkTensors(outputs, factory, &outputs_);
   }
 
@@ -534,13 +551,27 @@ class InferenceRunnerImpl : public CLInferenceRunner {
   }
 
   absl::Status Run() override {
+#ifdef latency_measure
+  double response_time = 0.0;
+  struct timespec begin, end;
+#endif
+
 #ifdef CL_DELEGATE_ALLOW_GL
     if (gl_interop_fabric_) {
       RETURN_IF_ERROR(gl_interop_fabric_->Start());
     }
 #endif
     for (const auto& input : inputs_) {
+      #ifdef latency_measure
+        clock_gettime(CLOCK_MONOTONIC, &begin);
+      #endif
       RETURN_IF_ERROR(input->CopyFromExternalObject());
+      #ifdef latency_measure
+        clock_gettime(CLOCK_MONOTONIC, &end);
+        response_time = (end.tv_sec - begin.tv_sec) +
+                        ((end.tv_nsec - begin.tv_nsec) / 1000000000.0);
+        printf("CpFE %.6f ", response_time);
+      #endif  
     }
 #ifdef TFLITE_GPU_ENABLE_INVOKE_LOOP
     // TODO(b/328511338): Remove code enabled by TFLITE_GPU_ENABLE_INVOKE_LOOP
@@ -557,11 +588,20 @@ class InferenceRunnerImpl : public CLInferenceRunner {
 #endif  // TFLITE_GPU_ENABLE_INVOKE_LOOP
     bool has_async_copies = false;
     for (const auto& output : outputs_) {
+      #ifdef latency_measure
+        clock_gettime(CLOCK_MONOTONIC, &begin);
+      #endif
       RETURN_IF_ERROR(output->CopyToExternalObject());
       if (output->def().external_def.object_def.object_type ==
           ObjectType::CPU_MEMORY) {
         has_async_copies = true;
       }
+      #ifdef latency_measure
+        clock_gettime(CLOCK_MONOTONIC, &end);
+        response_time = (end.tv_sec - begin.tv_sec) +
+                        ((end.tv_nsec - begin.tv_nsec) / 1000000000.0);
+        printf("CpTE %.6f ", response_time);
+      #endif  
     }
 #ifdef CL_DELEGATE_ALLOW_GL
     if (gl_interop_fabric_) {
@@ -571,6 +611,9 @@ class InferenceRunnerImpl : public CLInferenceRunner {
     if (has_async_copies) {
       RETURN_IF_ERROR(queue_->WaitForCompletion());
     }
+    #ifdef latency_measure
+      printf("\n");
+    #endif
     return absl::OkStatus();
   }
 
@@ -812,6 +855,8 @@ class InferenceBuilderImpl : public InferenceBuilder {
   }
 
   absl::Status Build(std::unique_ptr<InferenceRunner>* runner) override {
+    // Minsung debug
+    std::cout << "CL::Build()" << "\n";
 #ifdef CL_DELEGATE_ALLOW_GL
     if (gl_interop_fabric_ && !HasGlObjects()) {
       // destroy interop layer when there are no GL objects to avoid
@@ -993,6 +1038,8 @@ class InferenceEnvironmentImpl : public InferenceEnvironment {
   absl::Status NewInferenceBuilder(
       const InferenceOptions& options, GraphFloat32 model,
       std::unique_ptr<InferenceBuilder>* builder) final {
+  // Minsung debug
+  std::cout << "cl::NewInferenceBuilder()" << "\n";
     if (!IsValid(options)) {
       return absl::InvalidArgumentError("InferenceOptions are invalid.");
     }

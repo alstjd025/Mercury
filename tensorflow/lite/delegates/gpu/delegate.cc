@@ -41,6 +41,9 @@ limitations under the License.
 #include "absl/types/span.h"
 #include "tensorflow/lite/builtin_ops.h"
 
+// Minsung debug
+#include <iostream>
+
 #if defined(__ANDROID__)
 #include "tensorflow/lite/async/backend_async_kernel_interface.h"
 #include "tensorflow/lite/core/async/c/task.h"
@@ -444,6 +447,8 @@ absl::Status DelegateKernelCore::InitializeGraph(
 
 absl::Status DelegateKernelCore::Setup(
     TfLiteContext* context, const TfLiteDelegateParams* delegate_params) {
+  // Minsung debug
+  std::cout << "delegate.cc DelegateKernelCore::Setup()" << "\n";
   // Extract TFLite delegate execution plan from the context and convert it
   // into GraphFloat32.
   GraphFloat32 graph;
@@ -457,6 +462,8 @@ absl::Status DelegateKernelCore::Setup(
   bool backend_opencl = false;
   const int experimental_flags = delegate_->options().experimental_flags;
   if (experimental_flags & TFLITE_GPU_EXPERIMENTAL_FLAGS_CL_ONLY) {
+    // Minsung debug
+    std::cout << "delegate.cc::Setup()::InitializeOpenClApi()--1" << "\n";
     RETURN_IF_ERROR(InitializeOpenClApi(&graph, &builder, &graph_is_destroyed,
                                         context, delegate_params,
                                         delegate_->serialization()));
@@ -464,6 +471,8 @@ absl::Status DelegateKernelCore::Setup(
   } else if (experimental_flags & TFLITE_GPU_EXPERIMENTAL_FLAGS_GL_ONLY) {
     RETURN_IF_ERROR(InitializeOpenGlApi(&graph, &builder));
   } else {
+    // Minsung debug
+    std::cout << "delegate.cc::Setup()::InitializeOpenClApi()--2" << "\n";
     // By default, we try CL first & fall back to GL if that fails.
     absl::Status status =
         InitializeOpenClApi(&graph, &builder, &graph_is_destroyed, context,
@@ -512,7 +521,6 @@ absl::Status DelegateKernelCore::Setup(
     RETURN_IF_ERROR(builder->SetOutputObjectDef(
         object_index, GetObjectDef(tensor_index, data_type)));
   }
-
   return builder->Build(&runner_);
 }
 
@@ -521,6 +529,8 @@ absl::Status DelegateKernelCore::InitializeOpenClApi(
     bool* graph_is_destroyed, TfLiteContext* context,
     const TfLiteDelegateParams* delegate_params,
     Serialization* serialization = nullptr) {
+  // Minsung debug
+  std::cout << "InitializeOpenClApi" << "\n";
   *graph_is_destroyed = false;
   cl::InferenceEnvironmentOptions env_options;
   cl::InferenceEnvironmentProperties properties;
@@ -1410,9 +1420,13 @@ inline Delegate* GetDelegate(TfLiteDelegate* delegate) {
 const char kRegistrationCustomName[] = "TfLiteGpuDelegateV2";
 
 TfLiteRegistration CreateRegistration() {
+  // Minsung debug
+  std::cout << "delegate.cc CreateRegistration()" << "\n";
   return TfLiteRegistration{
       // .init
       [](TfLiteContext* context, const char* buffer, size_t) -> void* {
+        // Minsung debug
+        std::cout << "Registerd .init called" << "\n";
         const auto* params =
             reinterpret_cast<const TfLiteDelegateParams*>(buffer);
         auto* gpu_delegate = GetDelegate(params->delegate);
@@ -1434,6 +1448,8 @@ TfLiteRegistration CreateRegistration() {
       },
       // .prepare
       [](TfLiteContext* context, TfLiteNode* node) -> TfLiteStatus {
+          // Minsung debug
+        std::cout << "Registerd .prepare called" << "\n";
         if (!node->user_data) {
           TF_LITE_KERNEL_LOG(
               context,
@@ -1527,6 +1543,8 @@ TfLiteRegistration CreateAsyncRegistration() {
 #endif  // defined(__ANDROID__)
 
 TfLiteStatus DelegatePrepare(TfLiteContext* context, TfLiteDelegate* delegate) {
+  // Minsung debug
+  std::cout << "delegate.cc::DelegatePrepare() called" << "\n"; 
   auto* gpu_delegate = GetDelegate(delegate);
 
   const TfLiteRegistration kRegistration =
@@ -1545,6 +1563,18 @@ TfLiteStatus DelegatePrepare(TfLiteContext* context, TfLiteDelegate* delegate) {
   TfLiteIntArray* ops_to_replace =
       GetOpsToReplace(context, gpu_delegate->IsQuantOpsAllowed(),
                       gpu_delegate->MaxDelegatedPartitions(), &excluded_ops);
+  #ifdef Convnet
+    TfLiteIntArrayFree(ops_to_replace);
+    ops_to_replace = TfLiteIntArrayCreate(7);
+    ops_to_replace->data[0] = 0;
+    ops_to_replace->data[1] = 1;
+    ops_to_replace->data[2] = 2;
+    ops_to_replace->data[3] = 3;
+    ops_to_replace->data[4] = 4;
+    ops_to_replace->data[5] = 6;
+    ops_to_replace->data[6] = 7;
+  #endif
+
 #else
   TfLiteIntArray* ops_to_replace =
       GetOpsToReplace(context, gpu_delegate->IsQuantOpsAllowed(),

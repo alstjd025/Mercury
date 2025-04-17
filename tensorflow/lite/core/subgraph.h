@@ -18,6 +18,9 @@ limitations under the License.
 #include <stdarg.h>
 #include <stddef.h>
 
+// Minsung modified
+#include <iostream>
+
 #include <atomic>
 #include <cstdint>
 #include <map>

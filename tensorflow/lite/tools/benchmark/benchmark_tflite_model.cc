@@ -502,6 +502,7 @@ TfLiteStatus BenchmarkInterpreterRunner::AllocateTensors() {
   if (signature_runner_ != nullptr) {
     return signature_runner_->AllocateTensors();
   } else {
+    std::cout << "BenchmarkInterpreterRunner AllocateTensors" << "\n";
     return interpreter_->AllocateTensors();
   }
 }
@@ -1179,6 +1180,12 @@ TfLiteStatus BenchmarkTfLiteModel::Init() {
     // is used, so the order of destruction must be interpreter first,
     // delegate later. Moving the delegate to a list of owned delegates to
     // guarantee that.
+    // Minsung debug  
+    if (interpreter_runner_->AllocateTensors() != kTfLiteOk) {
+      TFLITE_LOG(ERROR) << "Failed to allocate tensors!";
+      return kTfLiteError;
+    }
+    
     owned_delegates_.emplace_back(std::move(created_delegate.delegate));
     if (interpreter_->ModifyGraphWithDelegate(delegate) != kTfLiteOk) {
       TFLITE_LOG(ERROR) << "Failed to apply " << delegate_provider->GetName()

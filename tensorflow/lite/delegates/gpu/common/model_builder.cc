@@ -3473,6 +3473,9 @@ absl::Status BuildModelEnforceIO(
     GraphFloat32* graph, absl::flat_hash_map<int, int>* quant_conversion_map) {
   std::vector<std::unique_ptr<TFLiteOperationParser>> operations;
   std::vector<int> tflite_nodes;
+  // Minsung debug
+  std::cout << "model_builder.cc::BuildModelEnforceIO" << "\n";
+  std::cout << "nodes_to_replace->size " << delegate_params->nodes_to_replace->size << "\n";
   for (int i = 0; i < delegate_params->nodes_to_replace->size; ++i) {
     TfLiteNode* tflite_node = nullptr;
     TfLiteRegistration* registration = nullptr;
@@ -3506,6 +3509,7 @@ absl::Status BuildModelEnforceIO(
       context, graph, input_ids, quant_conversion_map, &tensor_to_value));
   RETURN_IF_ERROR(PrecreateOutputTensors(
       context, graph, output_ids, quant_conversion_map, &tensor_to_value));
+  std::cout << "operations.size() " << operations.size() << "\n";
   for (int i = 0; i < operations.size(); ++i) {
     TfLiteNode* tflite_node;
     TfLiteRegistration* registration;
@@ -3544,6 +3548,8 @@ absl::Status BuildModelEnforceIO(
 absl::Status BuildFinalModel(
     TfLiteContext* context, const TfLiteDelegateParams* delegate_params,
     GraphFloat32* graph, absl::flat_hash_map<int, int>* quant_conversion_map) {
+  // Minsung debug
+  std::cout << "model_builder.cc::BuildFinalModel" << "\n";
   RETURN_IF_ERROR(
       BuildModel(context, delegate_params, graph, quant_conversion_map));
 
@@ -3579,6 +3585,8 @@ class DelegateContext {
 };
 
 TfLiteStatus DelegatePrepare(TfLiteContext* context, TfLiteDelegate* delegate) {
+  // Minsung debug
+  std::cout << "model_builder.cc DelegatePrepare called" << "\n";
   TfLiteRegistration registration{};
   registration.init = [](TfLiteContext* context, const char* buffer,
                          size_t) -> void* {
