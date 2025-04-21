@@ -50,6 +50,8 @@ limitations under the License.
 #include "tensorflow/lite/util.h"
 #include "tensorflow/lite/version.h"
 
+#include <iostream>
+
 // aligned_alloc is available (via cstdlib/stdlib.h) with C++17/C11.
 // (introduced in stdc11 but realized in C++17)
 #if __cplusplus >= 201703L && __STDC_VERSION__ >= 201112L
@@ -896,7 +898,6 @@ TfLiteStatus InterpreterBuilder::operator()(
     // Reports model and interpreter settings if telemetry is applied.
     (*interpreter)->ReportTelemetrySettings(kTelemetryBuilderEventName);
   }
-
   TfLiteStatus status = ApplyDelegates(interpreter->get());
   if (status != kTfLiteOk) {
     interpreter->reset();

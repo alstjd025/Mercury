@@ -1164,7 +1164,7 @@ TfLiteStatus Subgraph::AddNodeWithParameters(
   std::unique_ptr<void, decltype(free)*> builtin_data_deleter(builtin_data,
                                                               free);
   // Minsung debug
-  std::cout << "Subgraph::AddNodeWithParameters" << "\n";
+  // std::cout << "Subgraph::AddNodeWithParameters" << "\n";
   if (state_ == kStateInvokableAndImmutable) {
     ReportError("AddNodeWithParameters is disallowed when graph is immutable.");
     return kTfLiteError;
@@ -1368,7 +1368,7 @@ TfLiteStatus Subgraph::ReleaseMemory() {
 void* Subgraph::OpInit(const TfLiteRegistration& op_reg, const char* buffer,
                        size_t length) {
   //Minsung debug
-  std::cout << "Subgraph::OpInit" << "\n";
+  // std::cout << "Subgraph::OpInit" << "\n";
   // Delegates that use the stable delegate API to iterate over the nodes and
   // registrations are presented with ABI stable 'TfLiteOperator'
   // pointers, as opposed to ABI unstable 'TfLiteRegistration' pointers, even

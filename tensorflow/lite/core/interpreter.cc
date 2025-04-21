@@ -347,6 +347,7 @@ TfLiteStatus Interpreter::ApplyLazyDelegateProviders() {
     // Therefore, we simply continue with the next one.
     if (delegate_ptr == nullptr) continue;
     auto status = ModifyGraphWithDelegateImpl(std::move(delegate_ptr));
+    std::cout << "ApplyLazyDelegateProviders done" << "\n";
     switch (status) {
       case kTfLiteOk:
         TFLITE_LOG(
