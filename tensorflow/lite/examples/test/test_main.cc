@@ -35,14 +35,40 @@ size_t get_resident_set_size_kb() {
     return 0;
 }
 
+size_t get_current_process_pss_kb() {
+  const char* smaps_path = "/proc/self/smaps";
+  std::ifstream smaps_file(smaps_path);
+
+  if (!smaps_file.is_open()) {
+    std::cerr << "Failed to open " << smaps_path << std::endl;
+    return 0;
+  }
+  std::string line;
+  size_t total_pss_kb = 0;
+  while (std::getline(smaps_file, line)) {
+    if (line.find("Pss:") == 0) {
+      std::istringstream iss(line);
+      std::string key;
+      size_t pss_kb;
+
+      iss >> key >> pss_kb;
+      total_pss_kb += pss_kb;
+    }
+  }
+  smaps_file.close();
+  return total_pss_kb;
+}
+
 int main(int argc, char* argv[]) {
-  if (argc != 4) {
-    fprintf(stderr, "test <tflite model>, <GPU 0/1> <inference time N>\n");
+  if (argc != 5) {
+    fprintf(stderr, "test <tflite model>, <GPU 0/1> <inference time N> \ 
+                     <Print verbose debug msg 0/1>\n");
     return 1;
   }
   const char* filename = argv[1];
   bool use_gpu = (atoi(argv[2]) == 0) ? false : true ;
   int inference_time = atoi(argv[3]);
+  bool print_verbose = (atoi(argv[4]) == 0) ? false : true ;
   std::cout << GREEN << "LiteRT minimal example start at PID: ";
   std::cout << RED << getpid() << GREEN << "\n"; 
   std::cout << "Model: " << filename << "\n";
@@ -62,6 +88,9 @@ int main(int argc, char* argv[]) {
   std::cout << RED << "Resident Set Size after model load: " 
             << res_kb << " kB (" 
             << res_mb << " MB)" << RESET << "\n";
+size_t pss_kb = get_current_process_pss_kb();
+std::cout << RED << "Total PSS: " << pss_kb << " KB ("
+          << (pss_kb / 1024.0) << " MB)" << RESET << "\n";
   TFLITE_MINIMAL_CHECK(model != nullptr);
 
   // Build the interpreter with the InterpreterBuilder.
@@ -88,7 +117,9 @@ int main(int argc, char* argv[]) {
   std::cout << RED << "Resident Set Size after tensor allocation for CPU: " 
             << res_kb << " kB (" 
             << res_mb << " MB)" << RESET << "\n";
-
+  pss_kb = get_current_process_pss_kb();
+  std::cout << RED << "Total PSS: " << pss_kb << " KB ("
+            << (pss_kb / 1024.0) << " MB)" << RESET << "\n";
 
   // TFLITE_MINIMAL_CHECK(interpreter->RemoveAllDelegates() == kTfLiteOk);
   // Minsung 
@@ -117,10 +148,15 @@ int main(int argc, char* argv[]) {
     std::cout << RED << "Resident Set Size after GPU delegation: " 
               << res_kb << " kB (" 
               << res_mb << " MB)" << RESET << "\n";
+    pss_kb = get_current_process_pss_kb();
+    std::cout << RED << "Total PSS: " << pss_kb << " KB ("
+              << (pss_kb / 1024.0) << " MB)" << RESET << "\n";
   }
-  std::cout << RED << "========== Pre Invoke Interpreter State ==========" 
-            << RESET << "\n";
-  tflite::PrintInterpreterStateSimple(interpreter.get());
+  if(print_verbose){
+    std::cout << RED << "========== Pre Invoke Interpreter State ==========" 
+              << RESET << "\n";
+    tflite::PrintInterpreterStateSimple(interpreter.get());
+  }
 
   // Fill input buffers
   // TODO(user): Insert code to fill input tensors.
@@ -145,15 +181,19 @@ int main(int argc, char* argv[]) {
              << "\n";
   std::cout << "Average Inference Time: " << average_sec * 1000 << " ms" 
             << RESET <<  "\n"; 
-
-  std::cout << RED << "========== Post Invoke Interpreter State ==========" 
-            << RESET << "\n";
-  tflite::PrintInterpreterStateSimple(interpreter.get());
+  if(print_verbose){
+    std::cout << RED << "========== Post Invoke Interpreter State ==========" 
+              << RESET << "\n";
+    tflite::PrintInterpreterStateSimple(interpreter.get());
+  }
   res_kb = get_resident_set_size_kb();
   res_mb = res_kb / 1024.0; // 1MB = 1024kB
   std::cout << RED << "Resident Set Size after inference: " 
             << res_kb << " kB (" 
             << res_mb << " MB)" << RESET << "\n";
+  pss_kb = get_current_process_pss_kb();
+  std::cout << RED << "Total PSS: " << pss_kb << " KB ("
+            << (pss_kb / 1024.0) << " MB)" << RESET << "\n";
   // Read output buffers
   // TODO(user): Insert getting data out code.
   // Note: The buffer of the output tensor with index `i` of type T can
