@@ -656,4 +656,156 @@ void PrintInterpreterState(const Interpreter* interpreter,
   printf("--------------Memory Arena Status End--------------\n\n");
 }
 
+void PrintInterpreterStateSimple(const impl::Interpreter* interpreter){
+// Minsung
+// Prints a dump of what tensors and what nodes are in the interpreter.
+  std::cout << "=== PrintInterpreterStateSimple ===" << "\n";
+ printf("Interpreter has %zu tensors and %zu nodes\n",
+         interpreter->tensors_size(), interpreter->nodes_size());
+  printf("Inputs:");
+  PrintIntVector(interpreter->inputs());
+  printf("Outputs:");
+  PrintIntVector(interpreter->outputs());
+  printf("\n");
+  const Subgraph& subgraph = interpreter->primary_subgraph();
+  // Collect info about tensor memory allocation.
+  ModelTensorMemoryInfo tensor_mem_info;
+  for (size_t tensor_index = 0; tensor_index < subgraph.tensors_size();
+        tensor_index++) {
+    const TfLiteTensor* tensor =
+        subgraph.tensor(static_cast<int>(tensor_index));
+    tensor_mem_info.Update(tensor_index, *tensor);
+  }
+
+  // To dynamically determine the format string
+  std::stringstream var_length_fs;
+  int tensor_name_display_length = 100;
+  int tensor_type_display_length = 20;
+  int alloc_type_display_length = 20;
+  var_length_fs << "%-" << tensor_name_display_length << "s %-"
+                << tensor_type_display_length << "s %-"
+                << alloc_type_display_length << "s";
+
+  printf(
+      ("Tensor %3s " + var_length_fs.str() + " %-18s %-10s %-16s\n").c_str(),
+      "ID", "Name", "Type", "AllocType", "Size (Bytes/MB)", "Shape",
+      "MemAddr-Offset");
+
+  for (size_t tensor_index = 0; tensor_index < subgraph.tensors_size();
+        tensor_index++) {
+    const TfLiteTensor* tensor =
+        subgraph.tensor(static_cast<int>(tensor_index));
+    printf(("Tensor %3zu " + var_length_fs.str() + " %-8zu / %.2f ").c_str(),
+            tensor_index,
+            TruncateString(tensor->name, tensor_name_display_length,
+                          /*truncate_at_end*/ true)
+                .c_str(),
+            TruncateString(TensorTypeName(tensor->type),
+                          tensor_type_display_length)
+                .c_str(),
+            TruncateString(AllocTypeName(tensor->allocation_type),
+                          alloc_type_display_length)
+                .c_str(),
+            tensor->bytes, (static_cast<float>(tensor->bytes) / (1 << 20)));
+    PrintTfLiteIntVector(tensor->dims, /*collapse_consecutives*/ false);
+    const int64_t start_offset =
+        tensor_mem_info.GetOffsetFromArenaStart(*tensor);
+    const int64_t end_offset =
+        start_offset == -1
+            ? -1
+            : start_offset + static_cast<int64_t>(tensor->bytes);
+    printf(" [%" PRId64 ", %" PRId64 ")\n", start_offset, end_offset);
+  }
+  tensor_mem_info.Print();
+
+
+  for (size_t node_index = 0; node_index < interpreter->nodes_size();
+       node_index++) {
+    const std::pair<TfLiteNode, TfLiteRegistration>* node_and_reg =
+        interpreter->node_and_registration(static_cast<int>(node_index));
+    const TfLiteNode& node = node_and_reg->first;
+    const TfLiteRegistration& reg = node_and_reg->second;
+    if (reg.custom_name != nullptr) {
+      printf("Node %3zu Operator Custom Name %s\n", node_index,
+             reg.custom_name);
+    } else {
+      printf("Node %3zu Operator Builtin Code %3d %s ", node_index,
+             reg.builtin_code, EnumNamesBuiltinOperator()[reg.builtin_code]);
+    }
+    printf("  Inputs:");
+    PrintTfLiteIntVector(node.inputs);
+    printf("  Outputs:");
+    PrintTfLiteIntVector(node.outputs);
+    if (node.intermediates && node.intermediates->size) {
+      printf("  Intermediates:");
+      PrintTfLiteIntVector(node.intermediates);
+    }
+    if (node.temporaries && node.temporaries->size) {
+      printf("  Temporaries:");
+      PrintTfLiteIntVector(node.temporaries);
+    }
+    std::cout << "\n";
+  }
+  printf("--------------Memory Arena Status Start--------------\n");
+  size_t total_arena_memory_bytes = 0;
+  size_t total_dynamic_memory_bytes = 0;
+  size_t total_resource_bytes = 0;
+  const size_t num_subgraphs = interpreter->subgraphs_size();
+  for (int i = 0; i < num_subgraphs; ++i) {
+    const Subgraph& subgraph = *(interpreter->subgraph(i));
+    Subgraph::SubgraphAllocInfo alloc_info;
+    subgraph.GetMemoryAllocInfo(&alloc_info);
+    total_arena_memory_bytes += alloc_info.arena_size;
+    total_arena_memory_bytes += alloc_info.arena_persist_size;
+    total_dynamic_memory_bytes += alloc_info.dynamic_size;
+    // Resources are shared with all subgraphs. So calculate it only once.
+    if (i == 0) {
+      total_resource_bytes = alloc_info.resource_size;
+    }
+  }
+  size_t total_memory_bytes = total_arena_memory_bytes +
+                              total_dynamic_memory_bytes + total_resource_bytes;
+  printf("Total memory usage: %zu bytes (%.3f MB)\n", total_memory_bytes,
+         static_cast<float>(total_memory_bytes) / (1 << 20));
+  printf("- Total arena memory usage: %zu bytes (%.3f MB)\n",
+         total_arena_memory_bytes,
+         static_cast<float>(total_arena_memory_bytes) / (1 << 20));
+  printf("- Total dynamic memory usage: %zu bytes (%.3f MB)\n",
+         total_dynamic_memory_bytes,
+         static_cast<float>(total_dynamic_memory_bytes) / (1 << 20));
+  if (total_resource_bytes) {
+    printf("- Total resource memory usage: %zu bytes (%.3f MB)\n",
+           total_resource_bytes,
+           static_cast<float>(total_resource_bytes) / (1 << 20));
+  }
+  putchar('\n');
+
+  for (int i = 0; i < num_subgraphs; ++i) {
+    const Subgraph& subgraph = *(interpreter->subgraph(i));
+    Subgraph::SubgraphAllocInfo alloc_info;
+    subgraph.GetMemoryAllocInfo(&alloc_info);
+    if (alloc_info.arena_size) {
+      printf(
+          "Subgraph#%-3d %-18s %10zu (%.2f%%)\n", i, "Arena (Normal)",
+          alloc_info.arena_size,
+          static_cast<float>(alloc_info.arena_size * 100) / total_memory_bytes);
+    }
+    if (alloc_info.arena_persist_size) {
+      printf("Subgraph#%-3d %-18s %10zu (%.2f%%)\n", i, "Arena (Persistent)",
+             alloc_info.arena_persist_size,
+             static_cast<float>(alloc_info.arena_persist_size * 100) /
+                 total_memory_bytes);
+    }
+    if (alloc_info.dynamic_size) {
+      printf("Subgraph#%-3d %-18s %10zu (%.2f%%)\n", i, "Dyanmic Tensors",
+             alloc_info.dynamic_size,
+             static_cast<float>(alloc_info.dynamic_size * 100) /
+                 total_memory_bytes);
+    }
+  }
+  printf("--------------Memory Arena Status End--------------\n\n");
+
+
+  std::cout << "=== PrintInterpreterStateSimple End ===" << "\n";
+}
 }  // namespace tflite

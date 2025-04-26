@@ -488,11 +488,11 @@ class InferenceRunnerImpl : public CLInferenceRunner {
                           TensorTieFactory* factory) {
     RETURN_IF_ERROR(LinkTensors(inputs, factory, &inputs_));
     // Minsung debug
-    std::cout << "OpenCL inference runner initialize" << "\n";
-    std::cout << "Sizeof memory allocated for intermediate: "
-              << context_->GetSizeOfMemoryAllocatedForIntermediateTensors() << "\n";
-    std::cout << "Sizeof constant tensors size: " 
-              << context_->GetConstantTensorsSize() << "\n";
+    // std::cout << "OpenCL inference runner initialize" << "\n";
+    // std::cout << "Sizeof memory allocated for intermediate: "
+              // << context_->GetSizeOfMemoryAllocatedForIntermediateTensors() << "\n";
+    // std::cout << "Sizeof constant tensors size: " 
+              // << context_->GetConstantTensorsSize() << "\n";
     return LinkTensors(outputs, factory, &outputs_);
   }
 
@@ -856,7 +856,7 @@ class InferenceBuilderImpl : public InferenceBuilder {
 
   absl::Status Build(std::unique_ptr<InferenceRunner>* runner) override {
     // Minsung debug
-    std::cout << "CL::Build()" << "\n";
+    // std::cout << "CL::Build()" << "\n";
 #ifdef CL_DELEGATE_ALLOW_GL
     if (gl_interop_fabric_ && !HasGlObjects()) {
       // destroy interop layer when there are no GL objects to avoid
@@ -1039,7 +1039,7 @@ class InferenceEnvironmentImpl : public InferenceEnvironment {
       const InferenceOptions& options, GraphFloat32 model,
       std::unique_ptr<InferenceBuilder>* builder) final {
   // Minsung debug
-  std::cout << "cl::NewInferenceBuilder()" << "\n";
+  // std::cout << "cl::NewInferenceBuilder()" << "\n";
     if (!IsValid(options)) {
       return absl::InvalidArgumentError("InferenceOptions are invalid.");
     }

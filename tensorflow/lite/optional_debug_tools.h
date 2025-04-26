@@ -25,6 +25,16 @@ limitations under the License.
 #include "tensorflow/lite/core/interpreter.h"
 #include "tensorflow/lite/core/subgraph.h"
 
+#define RESET       "\033[0m"
+#define BLACK       "\033[30m"
+#define RED         "\033[31m"
+#define GREEN       "\033[32m"
+#define YELLOW      "\033[33m"
+#define BLUE        "\033[34m"
+#define MAGENTA     "\033[35m"
+#define CYAN        "\033[36m"
+#define WHITE       "\033[37m"
+
 namespace tflite {
 // Returns the name of the allocation type.
 const char* AllocTypeName(TfLiteAllocationType type);
@@ -34,6 +44,8 @@ void PrintInterpreterState(const impl::Interpreter* interpreter,
                            int32_t tensor_name_display_length = 25,
                            int32_t tensor_type_display_length = 15,
                            int32_t alloc_type_display_length = 18);
+
+void PrintInterpreterStateSimple(const impl::Interpreter* interpreter);
 
 struct SubgraphDelegationMetadata {
   // A bit vector indicating whether a node is replaced by a delegate. The

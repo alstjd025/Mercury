@@ -161,6 +161,8 @@ absl::Status GetBufferAssignment(
       },
       &buffer_usages);
   // Minsung debug
+  // For GPU buffer check
+  /*
   std::cout << "\033[1;36m" << "GetBufferAssignment" << "\033[0m" << "\n";
   std::cout << "buffer_usages size: " << buffer_usages.size() << "\n";
   std::cout << "===== GPU model info ===== " << "\n";
@@ -194,12 +196,13 @@ absl::Status GetBufferAssignment(
     // MS note: consider check GetMemorySizeInBytes()
     // MS note: tensor size and actual allocation size is different since BHWC4 align.
   }
+  */
   
   bool has_buffer_based_images = false;
   for (auto& usage : buffer_usages) {
     // Minsung debug
-    std::cout << "buffer usage of TensorID(valueID), x,y <" << usage.first << "," << usage.second.x
-              << "," << usage.second.y << ">" << "\n"; 
+    // std::cout << "buffer usage of TensorID(valueID), x,y <" << usage.first << "," << usage.second.x
+    //           << "," << usage.second.y << ">" << "\n"; 
     const auto& t = gpu_model.tensors.at(usage.first);
     const auto& shape = t.GetBHWDCShape();
     const auto& descriptor = t;
@@ -208,7 +211,7 @@ absl::Status GetBufferAssignment(
     if (descriptor.GetStorageType() == TensorStorageType::TEXTURE_2D ||
         descriptor.GetStorageType() == TensorStorageType::SINGLE_TEXTURE_2D) {
       // Minsung debug
-      std::cout << "TEXTURE_2D storage" << "\n"; 
+      // std::cout << "TEXTURE_2D storage" << "\n"; 
       has_buffer_based_images = true;
       const size_t bytes_per_pixel =
           element_size *
@@ -223,12 +226,12 @@ absl::Status GetBufferAssignment(
       }
       const size_t width_aligned = AlignByN(width, width_pixel_alignment);
       // Minsung debug
-      std::cout << "Aliged BHWC for bhwc4(width aligned, bytes per pixel, height): " << width_aligned << ", " << bytes_per_pixel << ", "
-                << height << "\n";
+      // std::cout << "Aliged BHWC for bhwc4(width aligned, bytes per pixel, height): " << width_aligned << ", " << bytes_per_pixel << ", "
+      //           << height << "\n";
       buffer_size = width_aligned * bytes_per_pixel * height;
     } else {
       // Minsung debug
-      std::cout << "IMAGE_BUFFER ";
+      // std::cout << "IMAGE_BUFFER ";
       if (descriptor.GetStorageType() == TensorStorageType::IMAGE_BUFFER) {
         has_buffer_based_images = true;
       }
@@ -240,7 +243,7 @@ absl::Status GetBufferAssignment(
           buffer_usage_records->size();
     }
     // Minsung debug
-    std::cout << "size:" << buffer_size << "\n";
+    // std::cout << "size:" << buffer_size << "\n";
     buffer_usage_records->push_back({buffer_size,
                                      static_cast<TaskId>(usage.second.x),
                                      static_cast<TaskId>(usage.second.y)});
@@ -381,10 +384,10 @@ absl::Status InferenceContext::InitFromGpuModel(
   }
   std::map<ValueId, Tensor> temp_external_tensors;
   // Minsung debug
-  std::cout << "External tensors ";
+  // std::cout << "External tensors ";
   for (const auto& external_tensor : create_info.external_mutable_tensors) {
     // Minsung debug
-    std::cout << external_tensor.first << " ";
+    // std::cout << external_tensor.first << " ";
     RETURN_IF_ERROR(
         CreateTensor(env->context(),
                      gpu_model->tensors[external_tensor.first],
@@ -393,7 +396,7 @@ absl::Status InferenceContext::InitFromGpuModel(
         &temp_external_tensors[external_tensor.first];
   }
   // Minsung debug
-  std::cout << "\n";
+  // std::cout << "\n";
   PrepareExternal();
   execution_hints_.Init(env->device().GetInfo());
   BindMemoryToOperations();
@@ -558,7 +561,7 @@ absl::Status InferenceContext::AllocateMemory(
     const GpuModel& gpu_model, const GpuInfo& gpu_info,
     const CreateGpuModelInfo* create_info, CLContext* context) {
   // Minsung debug
-  std::cout << "cl::InferenceContext::AllocateMemory" << "\n";
+  // std::cout << "cl::InferenceContext::AllocateMemory" << "\n";
   RETURN_IF_ERROR(AllocateConstTensors(gpu_model, context));
   RETURN_IF_ERROR(AllocateVariableTensors(gpu_model, context));
   RETURN_IF_ERROR(
@@ -570,14 +573,14 @@ absl::Status InferenceContext::AllocateMemory(
 
 absl::Status InferenceContext::AllocateConstTensors(const GpuModel& gpu_model,
                                                     CLContext* context) {
-  std::cout << "Const tensors:" << gpu_model.const_tensors.size() << ", ValueIDs: ";
+  // std::cout << "Const tensors:" << gpu_model.const_tensors.size() << ", ValueIDs: ";
   for (auto& description : gpu_model.const_tensors) {
     RETURN_IF_ERROR(const_tensors_[description.first].CreateFromDescriptor(
         description.second, context));
     // Minsung debug
-    std::cout << description.first << " ";
+    // std::cout << description.first << " ";
   }
-  std::cout << "\n";
+  // std::cout << "\n";
   return absl::OkStatus();
 }
 
@@ -588,11 +591,11 @@ absl::Status InferenceContext::AllocateVariableTensors(
   }
 
   // Minsung debug
-  std::cout << "Variable tensors:" << gpu_model.variable_ids_and_refs.size() << ", ValueIDs: ";
-  for(auto tmp : gpu_model.variable_ids_and_refs){
-    std::cout << "<" << tmp.first << "," << tmp.second << ">" << "\n";
-  }
-  std::cout << "\n";
+  // std::cout << "Variable tensors:" << gpu_model.variable_ids_and_refs.size() << ", ValueIDs: ";
+  // for(auto tmp : gpu_model.variable_ids_and_refs){
+  //   std::cout << "<" << tmp.first << "," << tmp.second << ">" << "\n";
+  // }
+  // std::cout << "\n";
 
   std::map<ValueId, int> ref_value_to_tensor_index;
   for (auto value_and_ref_value : variable_ids_and_refs_) {
@@ -631,7 +634,7 @@ absl::Status InferenceContext::AllocateBufferBasedTensors(
 
   if (use_offset_assignment) {
     // Minsung debug
-    std::cout  << "use offset assignment" <<"\n";
+    // std::cout  << "use offset assignment" <<"\n";
     if (!shared_buffers_parent_ptr_) {
       Buffer shared_buffer;
       RETURN_IF_ERROR(CreateReadWriteBuffer(offset_assignment.total_size,
@@ -653,7 +656,7 @@ absl::Status InferenceContext::AllocateBufferBasedTensors(
   } else {
     const size_t total_size = TotalSize(buffer_assignment, base_align_bytes);
     // Minsung debug
-    std::cout << "use buffer assignment, total size:" << total_size << "\n";
+    // std::cout << "use buffer assignment, total size:" << total_size << "\n";
     if (is_sub_buffers_supported && total_size <= gpu_info.GetMaxBufferSize()) {
       // use single parent buffer:
       if (!shared_buffers_parent_ptr_) {
@@ -800,7 +803,7 @@ absl::Status InferenceContext::AllocateStrongShapesTensors(
       const auto& it = strong_shape_tensors_.find(id);
       if (it == strong_shape_tensors_.end()) {
         // Minsung debug
-        std::cout << "Create strong tensor: " << tensor_id << "\n";
+        // std::cout << "Create strong tensor: " << tensor_id << "\n";
         RETURN_IF_ERROR(
             CreateTensor(*context, tensor_desc, &strong_shape_tensors_[id]));
       }
@@ -868,7 +871,7 @@ absl::Status InferenceContext::UpdateParams() {
   int i=0;
   for (auto& node : nodes_) {
     // Minsung temp
-    std::cout << "node " << i << " update param" << "\n"; 
+    // std::cout << "node " << i << " update param" << "\n"; 
     i++;
     RETURN_IF_ERROR(node.cl_operation.UpdateParams());
   }

@@ -675,6 +675,7 @@ TfLiteStatus Subgraph::ReplaceNodeSubsetsWithDelegateKernels(
     // Minsung debug
     #ifdef MINSUNG_DEBUG
       subset_idx++;
+      std::cout << "\n";
     #endif
   }
   return kTfLiteOk;
@@ -1607,7 +1608,9 @@ TfLiteStatus Subgraph::PrepareOpsStartingAt(
     // sizes of other tensors in the graph.
     if (HasDynamicTensor(context_, node.outputs, &dynamic_tensor_index_) ||
         op_prepare_status == kTfLiteOutputShapeNotKnown) {
-      has_dynamic_tensors_ = true;
+      
+      // has_dynamic_tensors_ = true;
+      has_dynamic_tensors_ = false;
       return kTfLiteOk;
     }
   }
