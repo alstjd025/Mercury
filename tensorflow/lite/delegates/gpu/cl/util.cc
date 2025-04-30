@@ -184,6 +184,7 @@ absl::Status CreateCLBuffer(cl_context context, int size_in_bytes,
     flags |= CL_MEM_COPY_HOST_PTR;
   }
   cl_int error_code;
+  std::cout << "CreateCLBuffer, size_in_bytes: " << size_in_bytes << "\n";
   *result = clCreateBuffer(context, flags, size_in_bytes, data, &error_code);
   if (!*result) {
     return absl::UnknownError(
@@ -201,14 +202,15 @@ absl::Status CreateCLSubBuffer(cl_context context, cl_mem parent,
   cl_buffer_region region{};
   region.origin = origin_in_bytes;
   region.size = size_in_bytes;
-
+  std::cout << "CreateCLSubBuffer" << "\n";
+  std::cout << "origin_in_bytes " << origin_in_bytes << " " << "size_in_bytes "
+            << size_in_bytes << "\n";
   cl_int error_code;
   if (!clCreateSubBuffer) {
     return absl::InternalError("clCreateSubBuffer is not supported.");
   }
   *result = clCreateSubBuffer(parent, flags, CL_BUFFER_CREATE_TYPE_REGION,
                               &region, &error_code);
-
   if (!*result) {
     return absl::UnknownError(
         absl::StrCat("Failed to allocate device memory (clCreateSubBuffer): ",

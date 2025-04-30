@@ -129,6 +129,13 @@ class BenchmarkInterpreterRunner {
   TfLiteStatus ResizeInputTensor(int tensor_index,
                                  const std::vector<int>& new_size);
 
+  //Minsung
+  #ifdef latency_per_node
+  void PrintLatencyPerNodeInSubgraph(){
+    interpreter_->PrintLatencyPerNodeOfSubgraph();
+  };
+  #endif
+
  private:
   BenchmarkInterpreterRunner() = delete;
   tflite::Interpreter* const interpreter_ = nullptr;
@@ -199,6 +206,13 @@ class BenchmarkTfLiteModel : public BenchmarkModel {
   std::unique_ptr<tflite::Interpreter> interpreter_;
   std::unique_ptr<BenchmarkInterpreterRunner> interpreter_runner_;
   std::unique_ptr<tflite::ExternalCpuBackendContext> external_context_;
+
+  // Minsung
+  #ifdef latency_per_node
+  void PrintLatencyPerNodeInSubgraph() override{
+    interpreter_runner_->PrintLatencyPerNodeInSubgraph();
+  }
+  #endif
 
  private:
   utils::InputTensorData CreateRandomTensorData(

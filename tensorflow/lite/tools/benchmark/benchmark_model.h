@@ -228,6 +228,10 @@ class BenchmarkModel {
 
   virtual TfLiteStatus ResetInputsAndOutputs();
   virtual TfLiteStatus RunImpl() = 0;
+  //Minsung
+  #ifdef latency_per_node
+  virtual void PrintLatencyPerNodeInSubgraph() = 0;
+  #endif
 
   // Create a MemoryUsageMonitor to report peak memory footprint if specified.
   virtual std::unique_ptr<profiling::memory::MemoryUsageMonitor>

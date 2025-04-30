@@ -1352,6 +1352,9 @@ class FullyConnectedOperationParser : public TFLiteOperationParser {
 
     auto input = graph->FindInputs(node->id)[0];
     if (input->tensor.shape.c != attr.weights.shape.i) {
+      // Minsung debug for vit
+      std::cout << "input->tensor.shape.c" << input->tensor.shape.c << " "
+                << "attr.weights.shape.i" << attr.weights.shape.i << "\n";
       return absl::UnimplementedError(
           "Amount of input channels should match weights width");
     }
@@ -3280,6 +3283,14 @@ TfLiteIntArray* GetOpsToReplace(
           std::string* unsupported_details) -> bool {
     const auto status =
         IsSupported(context, node, registration, allow_quant_ops, excluded_ops);
+    // // Minsung debug for Vit
+    // if(registration->builtin_code == 81 || // reduce_prod
+    //   registration->builtin_code == 167 || // reshape
+    //   registration->builtin_code == 45){ // strided_slice
+    //   return false;
+    // }
+
+
     if (!status.ok()) {
       if (unsupported_details) {
         *unsupported_details = std::string(status.message());

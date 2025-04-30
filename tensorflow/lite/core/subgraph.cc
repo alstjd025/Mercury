@@ -617,22 +617,12 @@ TfLiteStatus Subgraph::ReplaceNodeSubsetsWithDelegateKernels(
                   subgraph_index_);
 
   execution_plan_.clear();
-  // Minsung debug
-  #ifdef MINSUNG_DEBUG
-  subset_idx = 0;
-  #endif
   for (auto& node_subset : node_subsets) {
     // Subsets claimed by the delegate should have a "macro" op created, the
     // other node_subsets (kTfNonPartition) just have their nodes added back to
     // the execution plan.
-    #ifdef MINSUNG_DEBUG
-    // Minsung debug
-    std::cout << "subset_idx : " << subset_idx;
-    #endif
     switch (node_subset.type) {
       case NodeSubset::kTfNonPartition:
-        // Minsung debug
-        std::cout << " kTfNonPartition" << "\n";
         for (auto it = node_subset.nodes.begin(); it != node_subset.nodes.end();
              ++it) {
           execution_plan_.push_back(*it);
@@ -640,8 +630,6 @@ TfLiteStatus Subgraph::ReplaceNodeSubsetsWithDelegateKernels(
         break;
       case NodeSubset::kTfPartition: {
         int node_index;
-        // Minsung debug
-        std::cout << " kTfPartition" << "\n";
         void* delegate_params = nullptr;
         if (TfLiteDelegateHasValidOpaqueDelegateBuilder(delegate)) {
           TfLiteOpaqueDelegateParams* opaque_params =
@@ -672,11 +660,6 @@ TfLiteStatus Subgraph::ReplaceNodeSubsetsWithDelegateKernels(
         return kTfLiteError;
         break;
     }
-    // Minsung debug
-    #ifdef MINSUNG_DEBUG
-      subset_idx++;
-      std::cout << "\n";
-    #endif
   }
   return kTfLiteOk;
 }
@@ -1592,7 +1575,7 @@ TfLiteStatus Subgraph::PrepareOpsStartingAt(
                               node_index);
 #endif  // TF_LITE_TENSORFLOW_PROFILER
     // Minsung debug
-    std::cout << "execution_plan_index " << execution_plan_index << " OpPrepare()" << "\n";
+    // std::cout << "execution_plan_index " << execution_plan_index << " OpPrepare()" << "\n";
     const TfLiteStatus op_prepare_status = OpPrepare(registration, &node);
     if (op_prepare_status != kTfLiteOk &&
         op_prepare_status != kTfLiteOutputShapeNotKnown) {
@@ -1609,8 +1592,11 @@ TfLiteStatus Subgraph::PrepareOpsStartingAt(
     if (HasDynamicTensor(context_, node.outputs, &dynamic_tensor_index_) ||
         op_prepare_status == kTfLiteOutputShapeNotKnown) {
       
-      // has_dynamic_tensors_ = true;
-      has_dynamic_tensors_ = false;
+      has_dynamic_tensors_ = true;
+      
+      // Minsung debug for ViT only
+      // returning "true" is original code. 
+      // has_dynamic_tensors_ = false;
       return kTfLiteOk;
     }
   }
@@ -1738,20 +1724,20 @@ TfLiteStatus Subgraph::InvokeImpl() {
   // called.
   
   // Minsung modified
-  #ifdef latency_measure
+  #ifdef latency_per_node
     double invoke_response_time = 0.0;
-    // double op_invoke_response_time = 0.0;
+    double op_invoke_response_time = 0.0;
     struct timespec invoke_begin, invoke_end;
-    // struct timespec op_invoke_begin, op_invoke_end;
+    struct timespec op_invoke_begin, op_invoke_end;
     // std::cout << "Invoke " << "\n";
     clock_gettime(CLOCK_MONOTONIC, &invoke_begin);
   #endif
   
   for (int execution_plan_index = 0;
        execution_plan_index < execution_plan_.size(); execution_plan_index++) {
-    // #ifdef latency_measure
-    //   clock_gettime(CLOCK_MONOTONIC, &op_invoke_begin);
-    // #endif
+    #ifdef latency_per_node
+      clock_gettime(CLOCK_MONOTONIC, &op_invoke_begin);
+    #endif
     if (execution_plan_index == next_execution_plan_index_to_prepare_) {
       TF_LITE_ENSURE_STATUS(PrepareOpsAndTensors());
       TF_LITE_ENSURE(&context_, next_execution_plan_index_to_prepare_ >=
@@ -1866,23 +1852,24 @@ TfLiteStatus Subgraph::InvokeImpl() {
     tflite::OnTfLiteOpInvokeEnd(trace_op);
 #endif  // TF_LITE_TENSORFLOW_PROFILER
   // Minsung modeified
-  // #ifdef latency_measure
-  //   clock_gettime(CLOCK_MONOTONIC, &op_invoke_end);
-  //   op_invoke_response_time = (op_invoke_end.tv_sec - op_invoke_begin.tv_sec) +
-  //                   ((op_invoke_end.tv_nsec - op_invoke_begin.tv_nsec) / 1000000000.0);
-  //   printf("%.6f \n", op_invoke_response_time);
-  // #endif
+  #ifdef latency_per_node
+    clock_gettime(CLOCK_MONOTONIC, &op_invoke_end);
+    if(execution_plan_index == execution_plan_.size()-1){
+      inference_time++;
+    }
+    op_invoke_response_time = (op_invoke_end.tv_sec - op_invoke_begin.tv_sec) +
+                    ((op_invoke_end.tv_nsec - op_invoke_begin.tv_nsec) / 1000000000.0);
+    if(latency_per_nodes.size() != execution_plan_.size()){
+      latency_per_nodes.push_back(std::pair<std::string,double>(
+      GetTFLiteOpName(registration), op_invoke_response_time));
+    }else{
+      latency_per_nodes[execution_plan_index].second += op_invoke_response_time;
+    }
+  #endif
   } // op invoke loop
 #ifdef TF_LITE_TENSORFLOW_PROFILER
   tflite::OnTfLiteSubgraphInvokeEnd(trace_subgraph);
 #endif  // TF_LITE_TENSORFLOW_PROFILER
-
-#ifdef latency_measure
-  clock_gettime(CLOCK_MONOTONIC, &invoke_end);
-  invoke_response_time = (invoke_end.tv_sec - invoke_begin.tv_sec) +
-                  ((invoke_end.tv_nsec - invoke_begin.tv_nsec) / 1000000000.0);
-  printf("Invoke %.6f \n", invoke_response_time);
-#endif
   return status;
 }
 

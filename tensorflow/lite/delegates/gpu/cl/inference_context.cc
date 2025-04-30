@@ -162,7 +162,6 @@ absl::Status GetBufferAssignment(
       &buffer_usages);
   // Minsung debug
   // For GPU buffer check
-  /*
   std::cout << "\033[1;36m" << "GetBufferAssignment" << "\033[0m" << "\n";
   std::cout << "buffer_usages size: " << buffer_usages.size() << "\n";
   std::cout << "===== GPU model info ===== " << "\n";
@@ -196,7 +195,6 @@ absl::Status GetBufferAssignment(
     // MS note: consider check GetMemorySizeInBytes()
     // MS note: tensor size and actual allocation size is different since BHWC4 align.
   }
-  */
   
   bool has_buffer_based_images = false;
   for (auto& usage : buffer_usages) {
@@ -226,8 +224,8 @@ absl::Status GetBufferAssignment(
       }
       const size_t width_aligned = AlignByN(width, width_pixel_alignment);
       // Minsung debug
-      // std::cout << "Aliged BHWC for bhwc4(width aligned, bytes per pixel, height): " << width_aligned << ", " << bytes_per_pixel << ", "
-      //           << height << "\n";
+      std::cout << "Aliged BHWC for bhwc4(width aligned, bytes per pixel, height): " << width_aligned << ", " << bytes_per_pixel << ", "
+                << height << "\n";
       buffer_size = width_aligned * bytes_per_pixel * height;
     } else {
       // Minsung debug
@@ -243,7 +241,7 @@ absl::Status GetBufferAssignment(
           buffer_usage_records->size();
     }
     // Minsung debug
-    // std::cout << "size:" << buffer_size << "\n";
+    std::cout << "size:" << buffer_size << "\n";
     buffer_usage_records->push_back({buffer_size,
                                      static_cast<TaskId>(usage.second.x),
                                      static_cast<TaskId>(usage.second.y)});
@@ -263,6 +261,8 @@ absl::Status GetBufferAssignment(
     RETURN_IF_ERROR(AssignOffsetsToTensors(
         *buffer_usage_records, MemoryStrategy::GREEDY_BY_SIZE,
         offset_assignment, base_align_bytes));
+    std::cout << "offset_assignment total size(GREEDY_BY_SIZE) :"
+              << offset_assignment->total_size << "\n";
     if (offset_assignment->total_size <= TotalSize(*buffer_assignment) &&
         offset_assignment->total_size <= gpu_info.GetMaxBufferSize()) {
       *use_offset_assignment = true;
@@ -434,6 +434,10 @@ absl::Status InferenceContext::InitFromGpuModel(
     std::memcpy(serialized_model->data(), builder.GetBufferPointer(),
                 builder.GetSize());
   }
+  // Minsung debug for memory calculation
+  uint64_t cal_size;
+  GetTotalBufferSizeForTensors(*gpu_model, create_info, gpu_info_, &cal_size);
+  std::cout << "GetTotalBufferSizeForTensors " << cal_size << " bytes \n";
   return absl::OkStatus();
 }
 
@@ -634,9 +638,9 @@ absl::Status InferenceContext::AllocateBufferBasedTensors(
 
   if (use_offset_assignment) {
     // Minsung debug
-    // std::cout  << "use offset assignment" <<"\n";
     if (!shared_buffers_parent_ptr_) {
       Buffer shared_buffer;
+      std::cout << "CreateReadWriteBuffer" << "\n";
       RETURN_IF_ERROR(CreateReadWriteBuffer(offset_assignment.total_size,
                                             context, &shared_buffer));
       shared_buffers_parent_ =
@@ -653,10 +657,11 @@ absl::Status InferenceContext::AllocateBufferBasedTensors(
           *shared_buffers_parent_ptr_, offset_assignment.offsets[i],
           buffer_usage_records[i].tensor_size, context, &shared_buffers_[i]));
     }
+    std::cout  << "use offset assignment, total size: " << offset_assignment.total_size << "\n";
   } else {
     const size_t total_size = TotalSize(buffer_assignment, base_align_bytes);
     // Minsung debug
-    // std::cout << "use buffer assignment, total size:" << total_size << "\n";
+    std::cout << "use buffer assignment, total size:" << total_size << "\n";
     if (is_sub_buffers_supported && total_size <= gpu_info.GetMaxBufferSize()) {
       // use single parent buffer:
       if (!shared_buffers_parent_ptr_) {

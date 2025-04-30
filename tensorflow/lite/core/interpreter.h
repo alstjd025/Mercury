@@ -808,6 +808,12 @@ class Interpreter {
   /// \brief Get the error reporter associated with this interpreter.
   ErrorReporter* error_reporter() const { return error_reporter_; }
 
+#ifdef latency_per_node
+  void PrintLatencyPerNodeOfSubgraph(){
+    primary_subgraph().PrintLatencyPerNodes();
+  }
+#endif
+
  private:
   friend class tflite::impl::InterpreterBuilder;
 #ifndef DOXYGEN_SKIP

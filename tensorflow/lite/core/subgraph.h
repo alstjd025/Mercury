@@ -616,6 +616,30 @@ class Subgraph {
   // Inlines the composite nodes that have not been taken by a delegate.
   TfLiteStatus InlineCompositeNodes();
 
+
+  /* Note [Minsung]
+    for purpose of latency measure of nodes
+  */
+#define latency_per_node 
+#ifdef latency_per_node
+  std::vector<std::pair<std::string, double>> latency_per_nodes;
+  int inference_time = 0;
+  void PrintLatencyPerNodes(){
+    // Get average latency
+    for(int i=0; i<latency_per_nodes.size(); ++i){
+      latency_per_nodes[i].second = \
+        latency_per_nodes[i].second/inference_time;
+    }
+    std::cout << "Prints latency per nodes for " << inference_time 
+              << " inferences" << "\n";
+    for(auto data : latency_per_nodes){
+      std::cout << data.first << " ";
+      printf("%0.6f ms\n", data.second);
+    }
+    latency_per_nodes.clear();
+  }
+#endif
+
  private:
 #ifndef DOXYGEN_SKIP
   friend class tflite::impl::InterpreterBuilder;

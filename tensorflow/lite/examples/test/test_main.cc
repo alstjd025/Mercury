@@ -14,6 +14,12 @@
 #include "tensorflow/lite/optional_debug_tools.h"
 #include "tensorflow/lite/delegates/gpu/delegate.h"
 
+/* Note [Minsung]
+  ..
+*/
+// #define InferenceBeforeGPUDelegation
+#define MAX_THREAD 2
+
 
 #define TFLITE_MINIMAL_CHECK(x)                              \
   if (!(x)) {                                                \
@@ -60,15 +66,25 @@ size_t get_current_process_pss_kb() {
 }
 
 int main(int argc, char* argv[]) {
-  if (argc != 5) {
-    fprintf(stderr, "test <tflite model>, <GPU 0/1> <inference time N> \ 
-                     <Print verbose debug msg 0/1>\n");
+  size_t res_kb_model_load;
+  size_t res_kb_allocation;
+  size_t res_kb_delegation;
+  size_t res_kb_inference;
+  size_t pss_kb_model_load;
+  size_t pss_kb_allocation;
+  size_t pss_kb_delegation;
+  size_t pss_kb_inference;
+  if (argc != 6) {
+    std::cout << "test <tflite model>, <GPU 0/1> <inference time N>"
+              << "<Print verbose debug msg 0/1> <max_delegate_partition N>" << "\n";
+    fprintf(stderr, "Need more aurguments");
     return 1;
   }
   const char* filename = argv[1];
   bool use_gpu = (atoi(argv[2]) == 0) ? false : true ;
   int inference_time = atoi(argv[3]);
   bool print_verbose = (atoi(argv[4]) == 0) ? false : true ;
+  int max_partition = atoi(argv[5]);
   std::cout << GREEN << "LiteRT minimal example start at PID: ";
   std::cout << RED << getpid() << GREEN << "\n"; 
   std::cout << "Model: " << filename << "\n";
@@ -82,15 +98,9 @@ int main(int argc, char* argv[]) {
   // Load model
   std::unique_ptr<tflite::FlatBufferModel> model =
       tflite::FlatBufferModel::BuildFromFile(filename);
-  size_t res_kb = get_resident_set_size_kb();
-  double res_mb = res_kb / 1024.0; // 1MB = 1024kB
-
-  std::cout << RED << "Resident Set Size after model load: " 
-            << res_kb << " kB (" 
-            << res_mb << " MB)" << RESET << "\n";
-size_t pss_kb = get_current_process_pss_kb();
-std::cout << RED << "Total PSS: " << pss_kb << " KB ("
-          << (pss_kb / 1024.0) << " MB)" << RESET << "\n";
+  res_kb_model_load = get_resident_set_size_kb();
+  pss_kb_model_load= get_current_process_pss_kb();
+  
   TFLITE_MINIMAL_CHECK(model != nullptr);
 
   // Build the interpreter with the InterpreterBuilder.
@@ -112,92 +122,106 @@ std::cout << RED << "Total PSS: " << pss_kb << " KB ("
   std::cout << "========== Interpreter build ==========" << "\n";
   TFLITE_MINIMAL_CHECK(interpreter->AllocateTensors() == kTfLiteOk);
   std::cout << "========== Allocated tensors ==========" << "\n";
-  res_kb = get_resident_set_size_kb();
-  res_mb = res_kb / 1024.0; // 1MB = 1024kB
-  std::cout << RED << "Resident Set Size after tensor allocation for CPU: " 
-            << res_kb << " kB (" 
-            << res_mb << " MB)" << RESET << "\n";
-  pss_kb = get_current_process_pss_kb();
-  std::cout << RED << "Total PSS: " << pss_kb << " KB ("
-            << (pss_kb / 1024.0) << " MB)" << RESET << "\n";
+  res_kb_allocation = get_resident_set_size_kb();
+  pss_kb_allocation = get_current_process_pss_kb();
 
   // TFLITE_MINIMAL_CHECK(interpreter->RemoveAllDelegates() == kTfLiteOk);
   // Minsung 
   // Delegate code here (see benchmark_tflite_model.cc/line 1189)
+  TfLiteDelegate* gpu_delegate = nullptr;
   TfLiteGpuDelegateOptionsV2 options = {
-    .is_precision_loss_allowed = 0,
+    .is_precision_loss_allowed = -1,
     .inference_preference =
+          //  TFLITE_GPU_INFERENCE_PRIORITY_AUTO,
         TFLITE_GPU_INFERENCE_PREFERENCE_FAST_SINGLE_ANSWER,
+        // TFLITE_GPU_INFERENCE_PREFERENCE_SUSTAINED_SPEED,
     .inference_priority1 = TFLITE_GPU_INFERENCE_PRIORITY_MIN_LATENCY,
-    .inference_priority2 = TFLITE_GPU_INFERENCE_PRIORITY_MIN_MEMORY_USAGE,
+    .inference_priority2 = TFLITE_GPU_INFERENCE_PRIORITY_AUTO,
     .inference_priority3 = TFLITE_GPU_INFERENCE_PRIORITY_AUTO,
     // .experimental_flags = 1,
-    .max_delegated_partitions = 1000,
+    .max_delegated_partitions = max_partition,
   };
-  TfLiteDelegate* gpu_delegate = TfLiteGpuDelegateV2Create(&options);
   if(use_gpu){
+    #ifdef InferenceBeforeGPUDelegation
+      std::cout << "Inference for tensor allocation" << "\n";
+      TFLITE_MINIMAL_CHECK(interpreter->Invoke() == kTfLiteOk);
+      std::cout << "Inference for tensor allocation done" << "\n";
+    #endif
+
+    gpu_delegate = TfLiteGpuDelegateV2Create(&options);
     if(interpreter->ModifyGraphWithDelegate(gpu_delegate) != kTfLiteOk){
       std::cout << "test_main::ModifyGraphWithDelegate() returned ERROR" << "\n";
       return -1;
     }
     std::cout << GREEN << "========== GPU delegation done ==========" 
               << RESET << "\n";
-    size_t res_kb = get_resident_set_size_kb();
-    double res_mb = res_kb / 1024.0; // 1MB = 1024kB
-
-    std::cout << RED << "Resident Set Size after GPU delegation: " 
-              << res_kb << " kB (" 
-              << res_mb << " MB)" << RESET << "\n";
-    pss_kb = get_current_process_pss_kb();
-    std::cout << RED << "Total PSS: " << pss_kb << " KB ("
-              << (pss_kb / 1024.0) << " MB)" << RESET << "\n";
+    res_kb_delegation = get_resident_set_size_kb();
+    pss_kb_delegation = get_current_process_pss_kb();
   }
   if(print_verbose){
     std::cout << RED << "========== Pre Invoke Interpreter State ==========" 
               << RESET << "\n";
     tflite::PrintInterpreterStateSimple(interpreter.get());
   }
+  TFLITE_MINIMAL_CHECK(interpreter->SetNumThreads(MAX_THREAD) == kTfLiteOk);
 
   // Fill input buffers
   // TODO(user): Insert code to fill input tensors.
   // Note: The buffer of the input tensor with index `i` of type T can
   // be accessed with `T* input = interpreter->typed_input_tensor<T>(i);`
+  // const std::vector<int>& input_tensors = interpreter->inputs();
+
 
   // Infernence time measure
   struct timespec start_time, end_time;
-  clock_gettime(CLOCK_MONOTONIC, &start_time);
 
   // Run inference
+  std::cout << RED << "Start inference for " << GREEN << inference_time
+            << RED << " times" << RESET << "\n"; 
+  clock_gettime(CLOCK_MONOTONIC, &start_time);
   for(int i = 0; i<inference_time; ++i){
     TFLITE_MINIMAL_CHECK(interpreter->Invoke() == kTfLiteOk);
   }
-    clock_gettime(CLOCK_MONOTONIC, &end_time);
+  clock_gettime(CLOCK_MONOTONIC, &end_time);
   double total_sec = (end_time.tv_sec - start_time.tv_sec) + 
                     (end_time.tv_nsec - start_time.tv_nsec) / 1e9;
   double average_sec = total_sec / inference_time;
 
-  // Time print
-  std::cout << CYAN << "Total Inference Time: " << total_sec << " seconds"
-             << "\n";
-  std::cout << "Average Inference Time: " << average_sec * 1000 << " ms" 
-            << RESET <<  "\n"; 
   if(print_verbose){
     std::cout << RED << "========== Post Invoke Interpreter State ==========" 
               << RESET << "\n";
     tflite::PrintInterpreterStateSimple(interpreter.get());
   }
-  res_kb = get_resident_set_size_kb();
-  res_mb = res_kb / 1024.0; // 1MB = 1024kB
-  std::cout << RED << "Resident Set Size after inference: " 
-            << res_kb << " kB (" 
-            << res_mb << " MB)" << RESET << "\n";
-  pss_kb = get_current_process_pss_kb();
-  std::cout << RED << "Total PSS: " << pss_kb << " KB ("
-            << (pss_kb / 1024.0) << " MB)" << RESET << "\n";
+  #ifdef latency_per_node
+    interpreter->PrintLatencyPerNodeOfSubgraph();
+  #endif
+  
+  // Time print
+  std::cout << CYAN << "Total Inference Time: " << total_sec << " seconds"
+             << "\n";
+  std::cout << "Average Inference Time: " << average_sec * 1000 << " ms" 
+            << RESET <<  "\n"; 
+  res_kb_inference = get_resident_set_size_kb();
+  pss_kb_inference = get_current_process_pss_kb();
   // Read output buffers
   // TODO(user): Insert getting data out code.
   // Note: The buffer of the output tensor with index `i` of type T can
   // be accessed with `T* output = interpreter->typed_output_tensor<T>(i);`
-  std::cout << "Test application terminated" << "\n"; 
+
+auto print_memory = [](const std::string& title, size_t res_kb, size_t pss_kb) {
+    std::cout << "\n" << GREEN << "=== " << title << " ===" << RESET << "\n";
+    std::cout << "  RSS (RES): " << GREEN << res_kb << " kB" << RESET 
+              << " (" << GREEN << (res_kb / 1024.0) << " MB" << RESET << ")" << "\n";
+    std::cout << "  PSS      : " << GREEN << pss_kb << " kB" << RESET 
+              << " (" << GREEN << (pss_kb / 1024.0) << " MB" << RESET << ")" << "\n";
+};
+
+  std::cout << "Test application terminated" << "\n";
+  print_memory("Memory after model load", res_kb_model_load, pss_kb_model_load);
+  print_memory("Memory after tensor allocation for CPU", res_kb_allocation, pss_kb_allocation);
+  if (use_gpu) {
+      print_memory("Memory after GPU delegation", res_kb_delegation, pss_kb_delegation);
+  }
+  print_memory("Memory after inference", res_kb_inference, pss_kb_inference);
   return 0;
 }

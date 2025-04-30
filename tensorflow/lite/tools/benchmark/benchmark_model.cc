@@ -268,11 +268,13 @@ StatWithPercentiles<int64_t> BenchmarkModel::Run(int min_num_times,
       *invoke_status = status;
     }
   }
-
+  
   std::stringstream stream;
   run_stats.OutputToStream(&stream);
   TFLITE_LOG(INFO) << stream.str() << std::endl;
-
+  #ifdef latency_per_node
+    PrintLatencyPerNodeInSubgraph();
+  #endif
   return run_stats;
 }
 

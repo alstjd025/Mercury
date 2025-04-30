@@ -614,6 +614,10 @@ class InferenceRunnerImpl : public CLInferenceRunner {
     #ifdef latency_measure
       printf("\n");
     #endif
+    std::cout << "Size of meomry allocated for intermediate tensors after inference" << " "
+              << context_->GetSizeOfMemoryAllocatedForIntermediateTensors() << "\n";
+    std::cout << "Size of constant tensors " << context_->GetConstantTensorsSize() << " bytes"
+              << "\n";
     return absl::OkStatus();
   }
 
