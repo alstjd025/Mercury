@@ -109,6 +109,7 @@ absl::Status Buffer::CreateFromBufferDescriptor(const BufferDescriptor& desc,
                           ? nullptr
                           : const_cast<unsigned char*>(desc.data.data());
   size_ = desc.size;
+  std::cout << "*** CreateFromBufferDescriptor " << desc.size << "\n";
   return CreateCLBuffer(context->context(), desc.size, read_only, data_ptr,
                         &buffer_);
 }
@@ -117,16 +118,19 @@ Buffer CreateBufferShared(cl_mem buffer) { return Buffer(buffer); }
 
 absl::Status CreateReadOnlyBuffer(size_t size_in_bytes, CLContext* context,
                                   Buffer* result) {
+  std::cout <<"*** CreateReadOnlyBuffer " << size_in_bytes << "\n";
   return CreateBuffer(size_in_bytes, true, nullptr, context, result);
 }
 
 absl::Status CreateReadOnlyBuffer(size_t size_in_bytes, const void* data,
                                   CLContext* context, Buffer* result) {
+  std::cout <<"*** CreateReadOnlyBuffer " << size_in_bytes << "\n";
   return CreateBuffer(size_in_bytes, true, data, context, result);
 }
 
 absl::Status CreateReadWriteBuffer(size_t size_in_bytes, CLContext* context,
                                    Buffer* result) {
+  std::cout <<"*** CreateReadWriteBuffer " << size_in_bytes << "\n";
   return CreateBuffer(size_in_bytes, false, nullptr, context, result);
 }
 

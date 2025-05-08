@@ -1565,12 +1565,16 @@ TfLiteStatus DelegatePrepare(TfLiteContext* context, TfLiteDelegate* delegate) {
                       gpu_delegate->MaxDelegatedPartitions(), &excluded_ops);
   #ifdef SimpleCNN
     TfLiteIntArrayFree(ops_to_replace);
-    ops_to_replace = TfLiteIntArrayCreate(5);
+    ops_to_replace = TfLiteIntArrayCreate(9);
     ops_to_replace->data[0] = 0;
     ops_to_replace->data[1] = 1;
     ops_to_replace->data[2] = 2;
-    ops_to_replace->data[3] = 4;
-    ops_to_replace->data[4] = 5;
+    ops_to_replace->data[3] = 3;
+    ops_to_replace->data[4] = 4;
+    ops_to_replace->data[5] = 5;
+    ops_to_replace->data[6] = 6;
+    ops_to_replace->data[7] = 7;
+    ops_to_replace->data[8] = 8;
   #endif
 
 #else

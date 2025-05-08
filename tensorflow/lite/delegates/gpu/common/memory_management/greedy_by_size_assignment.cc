@@ -83,17 +83,28 @@ absl::Status GreedyBySizeAssignment(
 
   // Vector of ids of already allocated tensors, ordered by offset.
   std::vector<size_t> ordered_allocs;
-
+  // std::cout << "====GreedyBySizeAssignment====" << "\n";
   for (const auto& rec_with_idx : ordered_records) {
     const TensorUsageRecord<size_t>* rec = rec_with_idx.usage_record;
+    // std::cout << "tensor " << rec_with_idx.idx << ", size(" 
+    //           << rec_with_idx.usage_record->tensor_size << ") allocation\n";
     size_t best_diff = kNotAssigned;
     size_t best_offset = kNotAssigned;
     size_t prev_offset = 0;
     for (const auto& allocated_id : ordered_allocs) {
+        // std::cout << allocated_id << ".last_task: "
+        //           << usage_records[allocated_id].last_task << " " 
+        //           << "rec->first_task: "
+        //           << rec->first_task << "\n";
+        // std::cout << allocated_id << ".first_task: "
+        //           << usage_records[allocated_id].first_task << " " 
+        //           << "rec->last_task: "
+        //           << rec->last_task << "\n";
       if (usage_records[allocated_id].last_task < rec->first_task ||
           usage_records[allocated_id].first_task > rec->last_task) {
         // Tensor allocated_id has usage interval, that doesn't intersect with
         // current tensor's usage interval, so we skip it.
+        // std::cout << "cont'd" << "\n";
         continue;
       }
       size_t cur_offset = assignment->offsets[allocated_id];
@@ -111,6 +122,7 @@ absl::Status GreedyBySizeAssignment(
           prev_offset,
           AlignByN(cur_offset + usage_records[allocated_id].tensor_size,
                    base_addr_align_bytes));
+      // std::cout << "prev_offset " << prev_offset << "\n";
     }
     // prev_offset should be no more than the total size with additional
     // alignment boundary introduced in AlignByN. Per object alignment added is
@@ -126,6 +138,7 @@ absl::Status GreedyBySizeAssignment(
     if (best_offset == kNotAssigned) {
       best_offset = prev_offset;
     }
+      // std::cout << "best_offset " << best_offset << "\n";
 
     // Assign best_offset to the current tensor and find the correct place to
     // insert information about it into ordered_allocs to save the order.

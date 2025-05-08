@@ -152,28 +152,6 @@ for(int i=0; i<partitions_.size(); ++i){
   return modified_results;
   #endif
 
-  #define SimpleCNN
-  #ifdef SimpleCNN
-  std::vector<TfLiteDelegateParams*> modified_results;
-  std::vector<std::pair<int, int>> params_to_merge;
-  params_to_merge.push_back(std::pair<int, int>(0, 32));
-  for(auto to_merge : params_to_merge){
-    for(int merge_idx_start = to_merge.first;
-      merge_idx_start < to_merge.second; ++merge_idx_start){
-      modified_results.push_back(partitions_[merge_idx_start]);
-    }
-  }
-  std::cout << "Modified partition results in GetFirstNLargestPartitions" << "\n";
-  for(int i=0; i<modified_results.size(); ++i){
-    std::cout << "Modified partitions " << i << " nodes ";
-    for(int j=0; j<modified_results[i]->nodes_to_replace->size; ++j){
-      std::cout << modified_results[i]->nodes_to_replace->data[j] << " ";
-    }
-    std::cout << "\n";
-  }
-  return modified_results;
-  #endif
-
   // Minsung modified -- for convnet
   // #ifdef Convnet
   // std::vector<TfLiteDelegateParams*> modified_results;

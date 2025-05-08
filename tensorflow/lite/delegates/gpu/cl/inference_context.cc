@@ -165,6 +165,10 @@ absl::Status GetBufferAssignment(
   std::cout << "\033[1;36m" << "GetBufferAssignment" << "\033[0m" << "\n";
   std::cout << "buffer_usages size: " << buffer_usages.size() << "\n";
   std::cout << "===== GPU model info ===== " << "\n";
+  /* [MS]
+    It seems there are only intermediate tensors in GPU model here.
+    where are constant tensors(weight & bias)?
+  */
   std::cout << "Const tensor size: " << gpu_model.const_tensors.size() << "\n"; 
   std::cout << "Tensors size: " << gpu_model.tensors.size() << "\n"; 
   std::cout << "Input_ids_and_refs size: " << gpu_model.input_ids_and_refs.size() << "\n"; 
@@ -199,8 +203,8 @@ absl::Status GetBufferAssignment(
   bool has_buffer_based_images = false;
   for (auto& usage : buffer_usages) {
     // Minsung debug
-    // std::cout << "buffer usage of TensorID(valueID), x,y <" << usage.first << "," << usage.second.x
-    //           << "," << usage.second.y << ">" << "\n"; 
+    std::cout << "buffer usage of TensorID(valueID), x,y <" << usage.first << "," << usage.second.x
+              << "," << usage.second.y << ">" << "\n"; 
     const auto& t = gpu_model.tensors.at(usage.first);
     const auto& shape = t.GetBHWDCShape();
     const auto& descriptor = t;
@@ -224,8 +228,8 @@ absl::Status GetBufferAssignment(
       }
       const size_t width_aligned = AlignByN(width, width_pixel_alignment);
       // Minsung debug
-      std::cout << "Aliged BHWC for bhwc4(width aligned, bytes per pixel, height): " << width_aligned << ", " << bytes_per_pixel << ", "
-                << height << "\n";
+      std::cout << "Aliged BHWC for bhwc4(width aligned, bytes per pixel, height): " 
+                << width_aligned << ", " << bytes_per_pixel << ", " << height << "\n";
       buffer_size = width_aligned * bytes_per_pixel * height;
     } else {
       // Minsung debug
@@ -241,7 +245,7 @@ absl::Status GetBufferAssignment(
           buffer_usage_records->size();
     }
     // Minsung debug
-    std::cout << "size:" << buffer_size << "\n";
+    // std::cout << "size:" << buffer_size << "\n";
     buffer_usage_records->push_back({buffer_size,
                                      static_cast<TaskId>(usage.second.x),
                                      static_cast<TaskId>(usage.second.y)});
@@ -255,7 +259,7 @@ absl::Status GetBufferAssignment(
       CanUseSubBufferForImage2d(gpu_info);
   const size_t base_align_bytes =
       std::max<size_t>(gpu_info.opencl_info.base_addr_align_in_bits >> 3, 1);
-
+  // std::cout << "base_align_bytes: " << base_align_bytes << "\n";
   *use_offset_assignment = false;
   if (*is_sub_buffers_supported) {
     RETURN_IF_ERROR(AssignOffsetsToTensors(
@@ -808,7 +812,7 @@ absl::Status InferenceContext::AllocateStrongShapesTensors(
       const auto& it = strong_shape_tensors_.find(id);
       if (it == strong_shape_tensors_.end()) {
         // Minsung debug
-        // std::cout << "Create strong tensor: " << tensor_id << "\n";
+        std::cout << "Create strong tensor: " << tensor_id << "\n";
         RETURN_IF_ERROR(
             CreateTensor(*context, tensor_desc, &strong_shape_tensors_[id]));
       }
