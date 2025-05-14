@@ -1,0 +1,23 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "/home/minsung/Mercury",
+                "/home/minsung/Mercury/third_party/xla",
+                "/home/minsung/Mercury/tensorflow/lite/build/flatbuffers/include",
+                "/home/minsung/Mercury/tensorflow/lite/build/**",
+                "/home/minsung/OpenCL_POC"
+            ],
+            "compilerPath": "/usr/bin/g++",
+            "cStandard": "c17",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "linux-gcc-x64",
+            "compileCommands": [
+                "${workspaceFolder}/build/compile_commands.json"
+            ]
+        }
+    ],
+    "version": 4
+}
